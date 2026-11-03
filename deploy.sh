@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# /var/www/myapp/bin/deploy.sh
+# /usr/local/bin/nextjs-deploy
+#
+# Installed root-owned, outside the deploy-owned app dir, so neither the deploy
+# user nor the app (which runs as deploy) can modify the script the SSH key runs.
 #
 # Forced command for the GitHub Actions SSH key (see README). Reads a .tar.gz of
 # the Next.js standalone build from stdin, then:
@@ -18,7 +21,6 @@ APP_DIR=/var/www/myapp
 RELEASES_DIR="$APP_DIR/releases"
 CURRENT="$APP_DIR/current"
 STATIC_DIR="$APP_DIR/shared/static"
-UPSTREAM_CONF=/etc/nginx/nextjs-upstream.conf
 PORTS=(3000 3001)
 KEEP_RELEASES=5
 HEALTH_PATH=/api/health
@@ -31,23 +33,10 @@ log() { echo "[deploy $(date +%T)] $*" >&2; }
 exec 9>"$APP_DIR/.deploy.lock"
 flock -n 9 || { log "another deploy is already running"; exit 1; }
 
-# Rewrite the upstream block, optionally marking one port as down, then reload Nginx.
+# Mark one port as down in Nginx (or none), via the root-owned helper.
+# The deploy user cannot write Nginx config itself.
 write_upstream() {
-  local down_port="${1:-}" p
-  {
-    echo "upstream nextjs_app {"
-    for p in "${PORTS[@]}"; do
-      if [[ "$p" == "$down_port" ]]; then
-        echo "    server 127.0.0.1:$p down;"
-      else
-        echo "    server 127.0.0.1:$p max_fails=1 fail_timeout=5s;"
-      fi
-    done
-    echo "    keepalive 32;"
-    echo "}"
-  } > "$UPSTREAM_CONF"
-  sudo /usr/sbin/nginx -t >/dev/null 2>&1 || { log "nginx config test failed"; return 1; }
-  sudo /usr/bin/systemctl reload nginx
+  sudo /usr/local/sbin/nextjs-drain "${1:-none}" || { log "nginx upstream update failed"; return 1; }
 }
 
 wait_healthy() {

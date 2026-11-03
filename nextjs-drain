@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# /usr/local/sbin/nextjs-drain  (root-owned; deploy.sh runs it via sudo, see sudoers-deploy)
+#
+# Usage: nextjs-drain <port|none>
+#
+# Rewrites the Nginx upstream with <port> marked "down" (or all ports up for
+# "none"), tests the config and reloads Nginx. The only input is checked against
+# PORTS, so the deploy user can drain an instance but cannot inject Nginx config.
+
+set -euo pipefail
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+PORTS=(3000 3001)
+CONF=/etc/nginx/nextjs-upstream.conf
+
+[[ $# -eq 1 ]] || { echo "usage: nextjs-drain <port|none>" >&2; exit 2; }
+down="$1"
+if [[ "$down" != none ]]; then
+  ok=
+  for p in "${PORTS[@]}"; do [[ "$down" == "$p" ]] && ok=1; done
+  [[ -n "$ok" ]] || { echo "unknown port: $down" >&2; exit 2; }
+fi
+
+tmp="$(mktemp "$CONF.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+{
+  echo "upstream nextjs_app {"
+  for p in "${PORTS[@]}"; do
+    if [[ "$p" == "$down" ]]; then
+      echo "    server 127.0.0.1:$p down;"
+    else
+      echo "    server 127.0.0.1:$p max_fails=1 fail_timeout=5s;"
+    fi
+  done
+  echo "    keepalive 32;"
+  echo "}"
+} > "$tmp"
+chmod 644 "$tmp"
+
+cp -p "$CONF" "$CONF.bak" 2>/dev/null || true
+mv -f "$tmp" "$CONF"
+if ! nginx -t >/dev/null 2>&1; then
+  [[ -f "$CONF.bak" ]] && mv -f "$CONF.bak" "$CONF"
+  echo "nginx config test failed, previous upstream restored" >&2
+  exit 1
+fi
+systemctl reload nginx
