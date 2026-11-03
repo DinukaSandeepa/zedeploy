@@ -34,7 +34,7 @@ sudo apt install -y nodejs
 On the server, download this repo and run the script:
 
 ```bash
-git clone <this-repo-url> zedeploy
+git clone https://github.com/DinukaSandeepa/zedeploy.git
 cd zedeploy
 sudo ./setup-server.sh
 ```
@@ -111,7 +111,19 @@ Under **Variables**, add:
 
 ## Step 6. Change your Next.js app
 
-Do these three things in your app's repo.
+### Quick way (one command)
+
+Open a terminal **in your Next.js project folder** and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/DinukaSandeepa/zedeploy/main/skill.sh | bash
+```
+
+This adds the workflow file, the health check route and the Claude skill. It never overwrites a file you already have, and it prints `skip (exists)` for those. If your `next.config` already exists, it tells you which two lines to add by hand (see item 1 below). Then go to Step 7.
+
+### Manual way
+
+Do these three things in your app's repo instead.
 
 **1. Turn on standalone output** in `next.config.ts`:
 
@@ -201,6 +213,7 @@ Then fix the code, or revert the commit on GitHub. The next push will deploy ove
 | File | Installed on the server at | Purpose |
 |---|---|---|
 | `setup-server.sh` | (run once, not installed) | One-time server setup |
+| `skill.sh` | (run once in your app, not installed) | Adds the workflow, health route and skill to your Next.js app |
 | `deploy.sh` | `/var/www/myapp/bin/deploy.sh` | Unpacks a new version and restarts the app copies one at a time |
 | `nextjs_.service` | `/etc/systemd/system/nextjs@.service` | Keeps the app running, restarts it if it crashes |
 | `nginx-myapp.conf` | `/etc/nginx/conf.d/myapp.conf` | Sends visitors to the app, serves static files |
