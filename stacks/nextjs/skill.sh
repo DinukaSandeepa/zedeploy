@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # Run inside your Next.js project root:
-#   curl -fsSL https://raw.githubusercontent.com/DinukaSandeepa/zedeploy/main/skill.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/DinukaSandeepa/zedeploy/main/stacks/nextjs/skill.sh | bash
 # Adds the deploy workflow, health check route and Claude skill. Never overwrites existing files.
 set -euo pipefail
-BASE=${BASE:-https://raw.githubusercontent.com/DinukaSandeepa/zedeploy/main}
+BASE=${BASE:-https://raw.githubusercontent.com/DinukaSandeepa/zedeploy/main/stacks/nextjs}
 
 grep -qs '"next"' package.json || { echo "Run this inside a Next.js project (no package.json with next found)." >&2; exit 1; }
 
-get() { # <path in zedeploy repo> <destination>
+get() { # <path in stacks/nextjs> <destination>
   if [ -e "$2" ]; then echo "skip (exists):  $2"; return; fi
   mkdir -p "$(dirname "$2")"
   curl -fsSL "$BASE/$1" -o "$2" && echo "created:        $2"
 }
 
-get .claude/skills/nextjs-zero-downtime-deploy/SKILL.md .claude/skills/nextjs-zero-downtime-deploy/SKILL.md
+get SKILL.md .claude/skills/nextjs-zero-downtime-deploy/SKILL.md
 get deploy.yml .github/workflows/deploy.yml
 
 dir=app; [ -d src/app ] && dir=src/app
