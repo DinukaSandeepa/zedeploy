@@ -1,0 +1,39 @@
+# /etc/systemd/system/nextjs@.service
+# One template, many instances: nextjs@3000, nextjs@3001 (the instance name is the port).
+#
+# WorkingDirectory points at the "current" symlink. systemd resolves it when the
+# process starts, so a running instance keeps serving the release it was started
+# from even after the symlink is flipped. Old releases stay on disk (see KEEP_RELEASES
+# in deploy.sh), so lazy-loaded chunks never disappear under a running instance.
+
+[Unit]
+Description=Next.js app instance on port %i
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/var/www/myapp/current
+EnvironmentFile=/var/www/myapp/shared/.env.production
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=%i
+ExecStart=/usr/bin/node server.js
+
+Restart=always
+RestartSec=2
+
+# Graceful shutdown: SIGTERM first, SIGKILL only after 30s
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
