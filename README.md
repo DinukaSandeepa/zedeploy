@@ -25,7 +25,7 @@ Log in to your server and install Nginx, Node.js 22 and git:
 ```bash
 sudo apt update
 sudo apt install -y nginx git curl
-curl -fsSL https://deploy.nodesource.com/setup_22.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
@@ -83,7 +83,7 @@ This makes two files: `gh_deploy` (private, keep secret) and `gh_deploy.pub` (pu
 
 ```bash
 sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-echo 'restrict,command="/var/www/myapp/bin/deploy.sh" ssh-ed25519 AAAA... gh-actions' | sudo tee -a /home/deploy/.ssh/authorized_keys
+echo 'restrict,command="/usr/local/bin/nextjs-deploy" ssh-ed25519 AAAA... gh-actions' | sudo tee -a /home/deploy/.ssh/authorized_keys
 sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys
 sudo chmod 600 /home/deploy/.ssh/authorized_keys
 ```
@@ -214,10 +214,11 @@ Then fix the code, or revert the commit on GitHub. The next push will deploy ove
 |---|---|---|
 | `setup-server.sh` | (run once, not installed) | One-time server setup |
 | `skill.sh` | (run once in your app, not installed) | Adds the workflow, health route and skill to your Next.js app |
-| `deploy.sh` | `/var/www/myapp/bin/deploy.sh` | Unpacks a new version and restarts the app copies one at a time |
+| `deploy.sh` | `/usr/local/bin/nextjs-deploy` (root-owned) | Unpacks a new version and restarts the app copies one at a time |
 | `nextjs_.service` | `/etc/systemd/system/nextjs@.service` | Keeps the app running, restarts it if it crashes |
 | `nginx-myapp.conf` | `/etc/nginx/conf.d/myapp.conf` | Sends visitors to the app, serves static files |
-| `nextjs-upstream.conf` | `/etc/nginx/nextjs-upstream.conf` | List of app copies; `deploy.sh` edits it during a deploy |
+| `nextjs-upstream.conf` | `/etc/nginx/nextjs-upstream.conf` (root-owned) | List of app copies; changed only by `nextjs-drain` during a deploy |
+| `nextjs-drain` | `/usr/local/sbin/nextjs-drain` (root-owned) | Marks one app copy "down" in Nginx; the only Nginx change `deploy` may make |
 | `sudoers-deploy` | `/etc/sudoers.d/deploy` | Lets `deploy` run only the few admin commands it needs |
 | `deploy.yml` | `.github/workflows/deploy.yml` in your app repo | GitHub Actions workflow: build, send, deploy, smoke test |
 
@@ -225,7 +226,6 @@ Server folder layout:
 
 ```
 /var/www/myapp/
-  bin/deploy.sh
   releases/<timestamp>/     # one folder per deploy (last 5 kept)
   current -> releases/<ts>  # link to the live version
   shared/.env.production    # your secrets, never in git

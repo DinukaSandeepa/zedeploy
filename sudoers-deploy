@@ -1,7 +1,8 @@
 # /etc/sudoers.d/deploy   (chmod 440; validate with: sudo visudo -cf /etc/sudoers.d/deploy)
 # The deploy user may ONLY do these things as root. No blanket sudo.
+# nextjs-drain validates its single port argument; never give deploy direct
+# write access to Nginx config or "systemctl reload nginx" plus a writable include.
 
 deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart nextjs@3000, \
                             /usr/bin/systemctl restart nextjs@3001, \
-                            /usr/bin/systemctl reload nginx, \
-                            /usr/sbin/nginx -t
+                            /usr/local/sbin/nextjs-drain

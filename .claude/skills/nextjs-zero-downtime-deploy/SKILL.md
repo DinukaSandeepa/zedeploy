@@ -13,12 +13,13 @@ Two Next.js instances (ports 3000, 3001) run behind Nginx. Each deploy restarts 
 |---|---|
 | `nextjs_.service` | `/etc/systemd/system/nextjs@.service` (note the rename) |
 | `nginx-myapp.conf` | `/etc/nginx/conf.d/myapp.conf` |
-| `nextjs-upstream.conf` | `/etc/nginx/nextjs-upstream.conf` (owned by `deploy`) |
+| `nextjs-upstream.conf` | `/etc/nginx/nextjs-upstream.conf` (root-owned) |
+| `nextjs-drain` | `/usr/local/sbin/nextjs-drain` (root-owned) |
 | `sudoers-deploy` | `/etc/sudoers.d/deploy` |
-| `deploy.sh` | `/var/www/myapp/bin/deploy.sh` |
+| `deploy.sh` | `/usr/local/bin/nextjs-deploy` (root-owned) |
 | `deploy.yml` | `.github/workflows/deploy.yml` in the app repo |
 
-Server layout: `/var/www/myapp/{bin,releases/<ts>,current -> releases/<ts>,shared/.env.production,shared/static}`.
+Server layout: `/var/www/myapp/{releases/<ts>,current -> releases/<ts>,shared/.env.production,shared/static}`.
 
 ## Provision a fresh server
 
@@ -31,7 +32,7 @@ sudo ./setup-server.sh
 Then:
 1. Add runtime secrets (`MONGODB_URI`, `BETTER_AUTH_SECRET`, ...) to `/var/www/myapp/shared/.env.production`. The script already generates `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`.
 2. Edit `server_name` in `/etc/nginx/conf.d/myapp.conf`, then `sudo certbot --nginx -d <domain>`.
-3. Create the restricted CI key: `ssh-keygen -t ed25519 -f gh_deploy -C gh-actions -N ""`. Add the public key to `/home/deploy/.ssh/authorized_keys` prefixed with `restrict,command="/var/www/myapp/bin/deploy.sh"`.
+3. Create the restricted CI key: `ssh-keygen -t ed25519 -f gh_deploy -C gh-actions -N ""`. Add the public key to `/home/deploy/.ssh/authorized_keys` prefixed with `restrict,command="/usr/local/bin/nextjs-deploy"`.
 4. GitHub secrets: `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS`, `DEPLOY_USER`, `DEPLOY_HOST`. Variable: `APP_URL`.
 
 ## App requirements (Next.js side)
@@ -68,8 +69,9 @@ sudo systemctl restart nextjs@3000 && sleep 10 && sudo systemctl restart nextjs@
 
 ## Rules when editing these files
 
-- Never widen `sudoers-deploy`; `deploy` may only restart `nextjs@3000/3001`, reload Nginx, and run `nginx -t`. Validate with `sudo visudo -cf`.
-- Adding a port requires changes in `PORTS` (`deploy.sh`), `sudoers-deploy`, and `systemctl enable`.
+- Never widen `sudoers-deploy`; `deploy` may only restart `nextjs@3000/3001` and run `/usr/local/sbin/nextjs-drain <port|none>`. Validate with `sudo visudo -cf`.
+- Adding a port requires changes in `PORTS` (`deploy.sh` and `nextjs-drain`), `sudoers-deploy`, and `systemctl enable`.
+- Keep `deploy.sh`, `nextjs-drain` and `/etc/nginx/nextjs-upstream.conf` root-owned. The app runs as `deploy`; if `deploy` can write the script the SSH key runs, or any file Nginx parses, it can gain root.
 - Do not add `non_idempotent` to `proxy_next_upstream`; POSTs must not be retried.
 - The forced-command SSH key must stay `restrict,command=...`.
 - `deploy.sh` runs as `deploy`, so only `sudo` commands listed in sudoers will work.
