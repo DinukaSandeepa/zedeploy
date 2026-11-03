@@ -13,7 +13,7 @@ Your server runs **two copies** of your app (ports 3000 and 3001) behind **Nginx
 
 ## What you need before you start
 
-- A VPS running **Ubuntu 22.04 or 24.04**, with root or `sudo` access over SSH.
+- A VPS running **Ubuntu 22.04, 24.04 or 26.04**, with root or `sudo` access over SSH.
 - A domain name pointing at the server's IP address (an A record).
 - A Next.js app on GitHub that uses **npm**.
 - A computer with a terminal and `ssh`.
